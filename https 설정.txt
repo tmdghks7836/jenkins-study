@@ -1,0 +1,12 @@
+키 쌍 생성
+ssh-keygen -t rsa -f ~/.ssh/id_rsa
+
+공개키 확인
+vi id_rsa.pub 
+
+public 키 
+
+ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC8orFW6tRrz4t3+FPpVchOcvvlpRKA4JklkRHGjxbJJxtmclzaCRvoAVJ5eiO+uoshwb+Fp2HnCV2
+YjL8c5ijoxSdAMaXa6E8Cq/97GyciIxb06ioNWwfL/DxRxmE7LKaSKUute6Lgou2X81cldpNJLyY2n5wJnbqDGTCUxvImDUwNmD8ygzhS4owu8QpzzM
+TEbj8MwwNVfxE00lZL6gOCLLGtTjni5SuZiORwCjfF7cpmfoDD6Hgf/SokhYA5p5n2UkT7EylqyH2gY0pdP8JtgV0ntq5ExmcCUrSkFMhe517tFFM5i
+YY23U6V6R4SEpNuJSHj7rJAy/NuuiTC4kK/ tmdghks5415@jenkins-instance-1
