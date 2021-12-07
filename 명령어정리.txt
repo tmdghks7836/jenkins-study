@@ -14,5 +14,5 @@ sudo systemctl status jenkins
 
 sudo cat /var/lib/jenkins/secrets/initialAdminPassword
 
-sudo yum install -y lsof //특정 포트 확인 명령어를 위해 설치
+sudo yum install -y lsof  //특정 포트 확인 명령어를 위해 설치
 sudo kill -15 $(sudo lsof -t -i:8080)
