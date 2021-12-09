@@ -10,6 +10,9 @@ sudo yum install jenkins
 sudo systemctl start jenkins
 sudo systemctl status jenkins
 
+젠킨스 시작 
+ sudo service jenkins start
+
 # 여기까지 실행하면 설치는 완료
 
 sudo cat /var/lib/jenkins/secrets/initialAdminPassword
