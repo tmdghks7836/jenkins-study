@@ -1,0 +1,10 @@
+젠킨스 이미지로 접속 (볼륨 설정)
+docker run -d --name jenkins -p 8080:8080 -v /jenkins:/var/jenkins_home -v /usr/bin/docker:/usr/bin/docker -v /var/run/docker.sock:/var/run/docker.sock -u root jenkins/jenkins:lts
+
+
+들어갔다가 빠져나오기
+
+$ docker exec -it [134adb2ba12 혹은 my-container] /bin/bash
+root@134adb2ba12:~/$
+root@134adb2ba12:~/$ exit
+$
