@@ -1,0 +1,154 @@
+
+도커 이미지 맛보기 
+
+cpu instance -1 
+
+1. sudo yum install wget -y (for github download)
+2. sudo yum install java -y
+3. poo 가 올린 빌드파일 다운로드 - wget https://github.com/lleellee0/class101-files/raw/main/cpu-0.0.1-SNAPSHOT.jar
+4. 빌드파일 실행 sudo java -jar cpu-0.0.1-SNAPSHOT.jar
+
+docker 이미지를 gcp에 배포하기
+
+프로젝트 내부에 Dockerfile 생성 후 안에 내용 넣기.
+FROM openjdk:8-jdk-alpine
+ARG JAR_FILE=target/*.jar
+COPY ${JAR_FILE} app.jar
+ENTRYPOINT ["java","-jar","/app.jar"]
+ 
+1. dockerhub에서 repo 생성 
+2. 해당 도커파일을 빌드 docker build -t tmdghks0021/spring-boot-cpu-bound .
+3. 도커 이미지를 실행 docker run -p 80:80 tmdghks0021/spring-boot-cpu-bound 
+4. 도커이미지 허브에 푸시 docker push tmdghks0021/spring-boot-cpu-bound
+5. 도커 설치 sudo yum install docker -y 
+6. 도커 시작 sudo systemctl start docker 
+7. 도커 이미지 다운로드 sudo docker pull tmdghks0021/spring-boot-cpu-bound
+8. 도커 이미지 실행 sudo docker run -p 80:80 tmdghks0021/spring-boot-cpu-bound
+
+-----------------------------------젠킨스 파트 
+자바설치 확인 yum install java-1.8.0-openjdk-devel.x86_64
+젠킨스 설치 안될 경우 (https://tlatmsrud.tistory.com/67)
+sudo apt-get install yum
+1. sudo yum install wget -y (for github download)
+2. sudo yum install maven -y (with java)
+3. sudo yum install git -y
+4. sudo yum install docker -y
+5. 젠킨스 패키지 설치 
+- sudo wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
+- sudo rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key
+- sudo yum install jenkins -y
+6. 젠킨스 데몬 실행 
+- sudo systemctl start jenkins 
+- sudo systemctl status jenkins 
+- 방화벽 규칙에서 8080 열기 
+- 초기 비밀번호 열기 sudo cat /var/lib/jenkins/secrets/initialAdminPassword
+7. 플러그인 설치 Publish Over SSH 
+8. jenkins instance만 워커 인스턴스로 접속할 수 있도록 설정 
+- 개인키 공개키 쌍 생성 ssh-keygen -t rsa -f ~/.ssh/id_rsa
+- 공개키 복사 
+- 목적 인스턴스의 .ssh/authorized_keys 에 공개키 붙여넣기 후 권한 변경 chmod 700  ~/.ssh chmod 600 ~/.ssh/authorized_keys 
+9. jenkins 관리 -> 시스템 설정 Publish over SSH
+개인키는 젠킨스가, 공개키는 다른 인스턴스가 갖게 된다 
+10. 젠킨스 item 생성 
+- freestyle project
+- 빌드 후 조치 (send build .... ssh )
+- 고급  verbose output in console check
+- exec command sudo docker run -p 80:80 tmdghks0021/spring-boot-cpu-bound
+11. 해당 인스턴스에 도커 설치 sudo yum install docker -y
+12. 도커를 실행하면 /var/run/docker.sock 의 파일이 생성됨. 하지만 이 파일의 권한을 수정해야함 
+12. docker 실행을 위한 권한 수정 sudo chmod 666 /var/run/docker.sock
+
+그런데... 배포가 끝나지 않는다.. .
+
+구성 -> 커맨드를 
+ nohup sudo docker run -p 8080:8080 tmdghks0021/spring-boot-cpu-bound > /dev/null 2>&1 &  로 변경 (백그라운드로 실행)
+
+-------------------------nginx 파트 (로드 밸런싱)
+
+1. 젠킨스 시작 확인 
+2. 젠킨스 관리 -> 시스템 설정에서 인스턴스 2,3 추가 
+3. 해당 젠킨스 배포 인스턴스 -> 구성 -> add server 
+- 빌드 후 /dev/null -> nohup.out으로 결과물 로그 남기기 
+4. 나머지 인스턴스에 결과 로그 확인 도커 데몬 실행 안됨... 등등 
+5. nginx용 인스턴스 생성 
+- sudo yum install nginx -y
+- sudo systemctl start nginx
+- sudo vi /etc/nginx/nginx.conf 설정 
+  upstream cpu-bound-app {
+     
+      server 10.178.0.10:8080 weight=100 max_fails=3 fail_timeout=3s;
+      server 10.178.0.11:8080 weight=100 max_fails=3 fail_timeout=3s;
+      server 10.178.0.12:8080 weight=100 max_fails=3 fail_timeout=3s;
+    }  
+server 하위에 
+   location / {
+   
+   proxy_pass http://cpu-bound-app;
+   proxy_http_version 1.1;
+   proxy_set_header Upgrade $http_upgrade;
+   proxy_set_header Connection 'upgrade';
+   proxy_set_header Host $host;
+   proxy_cache_bypass $http_upgrade;
+}
+
+6. 재실행 sudo systemctl reload nginx
+7. nginx 에러 로그 확인 
+-  sudo tail -f /var/log/nginx/error.log;
+setsebool -P httpd_can_network_connect on
+
+-----------------------------------------------------깃헙 웹훅 
+
+1. 젠킨스 웹훅 설정 
+- 구성 -> 소스코드 관리 -> git check -> repository url 설정 
+- 빌드 유발 -> GitHub hook trigger for GITScm polling 
+- add build step -> execute shell 선택 후 command 창에 
+chmod 544 ./mvnw
+./mvnw clean package 입력 
+2. 빌드 후 조치 
+- source files = target/cpu-0.0.1-SNAPSHOT.jar
+- remove prefix = target
+- exec command = nohup sudo java -jar cpu-0.0.1-SNAPSHOT.jar > nohup.out 2>&1 &
+3. github 프로젝트의 settings-> webgooks-> addwebhook
+- Payload URL = http://34.64.105.74:8080/github-webhook/ (젠킨스 인스턴스의 url)
+- Content type = json
+- 소스트리 clone
+- 푸시해보면 젠킨스에서 pending됨 
+4. lsof (프로세스 죽이기)
+- sudo yum install lsof -y
+- sudo kill -9 $(sudo lsof -t -i:8080) 젠킨스 빌드 후 조치 항목에 추가 
+
+----------------------------------------------------postgresql
+
+1. 인스턴스 생성 
+2. sudo yum install docker -y
+3. sudo systemctl start docker
+4. sudo chmod 666 /var/run/docker.sock
+5. docker run --name pgsql -d -p 5432:5432 -e POSTGRES_USER=postgresql -e POSTGRES_PASSWORD=postgrespassword postgres
+
+----------------------------------------------------rabbitmq 
+
+1. <dependency>
+			<groupId>org.springframework.amqp</groupId>
+			<artifactId>spring-rabbit</artifactId>
+			<version>2.3.1</version>
+		</dependency>
+2. rabbitmq 인스턴스 생성 
+3. 방화벽 규칙 생성 
+4. 도커 설치 
+5. rabbitmq 컨테이너 실행 - docker run -d --hostname my-rabbit --name some-rabbit -p 5672:5672 -p 15672:15672 rabbitmq:3-management
+
+
+------------------------------------------------------리전 한곳에 몰아넣기 
+1. 인스턴스 3 제거 
+2. nginx instance image 생성 후 nginx.conf 수정 
+3. 도커 설치 
+4. 레빗mq 도커 run 
+5. rabbit mq -> queues->  create queue 설정 
+
+
+-----------------------------------------------.엘라스틱 서치 
+1. 도커 설치 
+2. 가상 메모리 사이즈 늘려주기 sudo sysctl -w vm.max_map_count=262144
+3. docker run (명령어는 엘라스틱서치 각 인스턴스 명령어.txt 확인)
+4. 방화벽 설정 9200
+
